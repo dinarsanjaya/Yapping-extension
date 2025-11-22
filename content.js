@@ -8,7 +8,7 @@
 // @grant        none
 // ==/UserScript==
 
-const DEFAULT_PROMPT = `Act as a regular Crypto Twitter user. Write a very short reply to the provided tweet. One short sentence only. You must reply in the exact same language as the tweet, and use the tweet’s tone and style. Keep it positive and casual. No emojis, hashtags, or quotation marks. Always start your reply with a lowercase letter. Never capitalize the first character. Do not use English unless the tweet is in English.`;
+const DEFAULT_PROMPT = "";
 
 const settingsCache = {
   provider: "groq",
@@ -33,7 +33,7 @@ function loadSettings() {
       settingsCache.groqApiKey = data.groqApiKey || "";
       settingsCache.openaiApiKey = data.openaiApiKey || "";
       settingsCache.geminiApiKey = data.geminiApiKey || "";
-      settingsCache.prompt = data.replyPrompt || DEFAULT_PROMPT;
+      settingsCache.prompt = data.replyPrompt ?? DEFAULT_PROMPT;
       settingsCache.loaded = true;
       resolve(settingsCache);
     });
@@ -207,7 +207,8 @@ async function generateText(box, container) {
       return;
     }
 
-    const prompt = `${settings.prompt}
+    const userPrompt = settings.prompt || "";
+    const prompt = `${userPrompt}
 
 tweet:
 ${tweetText}`;
@@ -227,7 +228,7 @@ ${tweetText}`;
           contents: [
             {
               parts: [
-                { text: `System: ${DEFAULT_PROMPT}\n\nUser:\n${prompt}` }
+                { text: `System: ${userPrompt}\n\nUser:\n${prompt}` }
               ]
             }
           ]
@@ -249,7 +250,7 @@ ${tweetText}`;
         body: JSON.stringify({
           model: providerConfig.model,
           messages: [
-            { role: "system", content: DEFAULT_PROMPT },
+            { role: "system", content: userPrompt },
             { role: "user", content: prompt },
           ],
           max_tokens: 200,

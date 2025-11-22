@@ -1,4 +1,4 @@
-const DEFAULT_PROMPT = `Act as a regular Crypto Twitter user. Write a very short reply to the provided tweet. One short sentence only. You must reply in the exact same language as the tweet, and use the tweet’s tone and style. Keep it positive and casual. No emojis, hashtags, or quotation marks. Always start your reply with a lowercase letter. Never capitalize the first character. Do not use English unless the tweet is in English.`;
+const DEFAULT_PROMPT = "";
 const PROVIDER_KEY_FIELDS = {
   groq: { key: "groqApiKey", label: "Groq API Key", placeholder: "gsk_..." },
   openai: { key: "openaiApiKey", label: "OpenAI API Key", placeholder: "sk-..." },
@@ -21,7 +21,7 @@ function loadSettings() {
     $("provider").value = provider;
     const meta = PROVIDER_KEY_FIELDS[provider];
     $("apiKey").value = data[meta.key] || "";
-    $("prompt").value = data.replyPrompt || DEFAULT_PROMPT;
+    $("prompt").value = data.replyPrompt ?? DEFAULT_PROMPT;
     updateKeyLabel(provider);
   });
 }
@@ -29,7 +29,7 @@ function loadSettings() {
 function saveSettings() {
   const provider = $("provider").value;
   const apiKey = $("apiKey").value.trim();
-  const replyPrompt = $("prompt").value.trim() || DEFAULT_PROMPT;
+  const replyPrompt = $("prompt").value.trim();
 
   chrome.storage.sync.get(["groqApiKey", "openaiApiKey", "geminiApiKey"], (data) => {
     const payload = {
