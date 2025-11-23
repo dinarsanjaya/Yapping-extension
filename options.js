@@ -1,4 +1,4 @@
-const DEFAULT_PROMPT = "";
+const DEFAULT_PROMPT = "Act as a human user on Twitter. Reply to the tweet using American slang (bahasa gaul amerika). Your reply MUST be directly relevant to the tweet's content. Do NOT explain or summarize. React naturally. Keep it concise and chill. Use proper capitalization. Do NOT use emojis.";
 const PROVIDER_KEY_FIELDS = {
   groq: { key: "groqApiKey", label: "Groq API Key", placeholder: "gsk_..." },
   openai: { key: "openaiApiKey", label: "OpenAI API Key", placeholder: "sk-..." },
@@ -22,7 +22,7 @@ function loadSettings() {
     $("provider").value = provider;
     const keyField = PROVIDER_KEY_FIELDS[provider];
     $("apiKey").value = data[keyField.key] || "";
-    $("prompt").value = data.replyPrompt ?? DEFAULT_PROMPT;
+    $("prompt").value = data.replyPrompt || DEFAULT_PROMPT;
     updateKeyLabel(provider);
   });
 }

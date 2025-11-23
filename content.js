@@ -8,7 +8,7 @@
 // @grant        none
 // ==/UserScript==
 
-const DEFAULT_PROMPT = "";
+const DEFAULT_PROMPT = "Act as a human user on Twitter. Reply to the tweet using American slang (bahasa gaul amerika). Your reply MUST be directly relevant to the tweet's content. Do NOT explain or summarize. React naturally. Keep it concise and chill. Use proper capitalization. Do NOT use emojis.";
 
 const settingsCache = {
   provider: "groq",
@@ -33,7 +33,7 @@ function loadSettings() {
       settingsCache.groqApiKey = data.groqApiKey || "";
       settingsCache.openaiApiKey = data.openaiApiKey || "";
       settingsCache.geminiApiKey = data.geminiApiKey || "";
-      settingsCache.prompt = data.replyPrompt ?? DEFAULT_PROMPT;
+      settingsCache.prompt = data.replyPrompt || DEFAULT_PROMPT;
       settingsCache.loaded = true;
       resolve(settingsCache);
     });
@@ -99,7 +99,7 @@ function createOrGetFloatingWindow() {
 function insertButtonIntoReplyBoxes() {
   // Find all reply boxes on the page
   const replyBoxes = document.querySelectorAll('div[contenteditable="true"][data-testid="tweetTextarea_0"]');
-  
+
   replyBoxes.forEach((box) => {
     const container = box.parentElement;
     if (!container || container.querySelector(".ai-reply-button")) return;
@@ -207,7 +207,7 @@ async function generateText(box, container) {
       return;
     }
 
-    const userPrompt = settings.prompt || "";
+    const userPrompt = settings.prompt || DEFAULT_PROMPT;
     const prompt = `${userPrompt}
 
 tweet:
@@ -273,10 +273,11 @@ ${tweetText}`;
     }
 
     floatingWin.innerHTML = "";
-    
+
     // Create a preview element to show the generated reply
     const previewDiv = document.createElement("div");
     previewDiv.textContent = replyText.trim();
+    previewDiv.contentEditable = "true"; // Make it editable
     Object.assign(previewDiv.style, {
       backgroundColor: "#1da1f2",
       border: "none",
@@ -288,8 +289,18 @@ ${tweetText}`;
       fontSize: "14px",
       width: "100%",
       marginBottom: "6px",
+      outline: "none", // Remove outline on focus
+      cursor: "text",
     });
-    
+
+    // Container for buttons
+    const btnContainer = document.createElement("div");
+    Object.assign(btnContainer.style, {
+      display: "flex",
+      gap: "8px",
+      width: "100%",
+    });
+
     // Create a button to insert the reply
     const insertBtn = document.createElement("button");
     insertBtn.textContent = "Insert Reply";
@@ -302,26 +313,47 @@ ${tweetText}`;
       color: "white",
       textAlign: "center",
       fontSize: "14px",
-      width: "100%",
+      flex: "1", // Take up available space
     });
 
     insertBtn.addEventListener("click", () => {
-      insertTextProperly(box, replyText.trim());
+      // Use the text from the previewDiv in case it was edited
+      insertTextProperly(box, previewDiv.innerText.trim());
       floatingWin.style.display = "none";
       floatingWin.innerHTML = "";
       box.focus();
     });
 
-    floatingWin.appendChild(previewDiv);
-    floatingWin.appendChild(insertBtn);
-    
-    // Auto-insert the reply after a short delay
-    setTimeout(() => {
-      insertTextProperly(box, replyText.trim());
+    // Auto-insert removed to allow editing
+    // setTimeout(() => { ... });
+
+    // Create a Clear button
+    const clearBtn = document.createElement("button");
+    clearBtn.textContent = "Clear";
+    Object.assign(clearBtn.style, {
+      backgroundColor: "#e0245e", // Red color for clear
+      border: "none",
+      borderRadius: "6px",
+      padding: "8px",
+      cursor: "pointer",
+      color: "white",
+      textAlign: "center",
+      fontSize: "14px",
+      flex: "1",
+    });
+
+    clearBtn.addEventListener("click", () => {
+      insertTextProperly(box, ""); // Insert empty string to clear
       floatingWin.style.display = "none";
       floatingWin.innerHTML = "";
       box.focus();
     });
+
+    btnContainer.appendChild(insertBtn);
+    btnContainer.appendChild(clearBtn);
+
+    floatingWin.appendChild(previewDiv);
+    box.focus();
   } catch (err) {
     floatingWin.innerHTML = `❌ Error generating reply: ${err.message}`;
     console.error("GenerateText error:", err);
@@ -333,83 +365,24 @@ function insertTextProperly(el, text) {
     console.error("insertTextProperly: Element is undefined");
     return;
   }
-  
+
   // Focus the element first
   el.focus();
-  
-  // Clear any existing text
-  el.innerText = "";
-  
-  // Method 1: Try using clipboard API and paste
-  navigator.clipboard.writeText(text).then(() => {
-    // Trigger paste event
-    const pasteEvent = new ClipboardEvent('paste', {
-      bubbles: true,
-      cancelable: true,
-      clipboardData: new DataTransfer()
-    });
-    pasteEvent.clipboardData.setData('text/plain', text);
-    el.dispatchEvent(pasteEvent);
-    
-    // If paste doesn't work, try direct methods
-    setTimeout(() => {
-      if (el.innerText.trim() === "") {
-        // Method 2: Try to find and update React's internal state
-        try {
-          // Find React fiber node
-          const reactKey = Object.keys(el).find(key => key.startsWith('__reactFiber'));
-          if (reactKey) {
-            const fiber = el[reactKey];
-            if (fiber && fiber.memoizedProps && fiber.memoizedProps.onChange) {
-              // Simulate React change event
-              const syntheticEvent = { target: el, currentTarget: el };
-              fiber.memoizedProps.onChange(syntheticEvent);
-            }
-          }
-        } catch (e) {
-          console.log("React state update failed");
-        }
-        
-        // Method 3: Direct text insertion with multiple event triggers
-        el.innerText = text;
-        
-        // Create and dispatch a comprehensive set of events
-        const events = [
-          'focus', 'focusin', 'focusout', 'blur',
-          'keydown', 'keyup', 'keypress',
-          'input', 'change', 'paste', 'cut', 'copy',
-          'compositionstart', 'compositionupdate', 'compositionend'
-        ];
-        
-        events.forEach(eventType => {
-          const event = new Event(eventType, { bubbles: true, cancelable: true });
-          el.dispatchEvent(event);
-        });
-        
-        // Method 4: Try to trigger the input using a more direct approach
-        try {
-          const inputEvent = new InputEvent('input', {
-            bubbles: true,
-            cancelable: true,
-            data: text,
-            inputType: 'insertText'
-          });
-          el.dispatchEvent(inputEvent);
-        } catch (e) {
-          console.log("InputEvent creation failed");
-        }
-      }
-    }, 100);
-  }).catch(err => {
-    console.error("Clipboard write failed:", err);
-    
-    // Fallback: Direct text insertion
+
+  // Select all text to replace it (simulating a clear + insert)
+  document.execCommand('selectAll', false, null);
+
+  // Use execCommand to insert text. This preserves the undo stack and
+  // works better with contenteditable editors like Twitter's.
+  // It also ensures that the text is "typed" in a way that the editor recognizes.
+  const success = document.execCommand('insertText', false, text);
+
+  // Fallback if execCommand fails (though it shouldn't on modern browsers for this)
+  if (!success) {
+    console.log("insertTextProperly: execCommand failed, trying fallback");
     el.innerText = text;
-    
-    // Trigger events
-    const inputEvent = new Event('input', { bubbles: true });
-    el.dispatchEvent(inputEvent);
-  });
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
 }
 
 function extractTweetTextFromContainer(container) {
@@ -432,17 +405,17 @@ function extractTweetTextFromContainer(container) {
 
 function getTweetTextFromDOM(replyBox) {
   console.log("getTweetTextFromDOM: Starting with replyBox:", replyBox);
-  
+
   // Try multiple approaches to find the tweet text
   let tweetText = "";
-  
+
   // Method 1: Look for the tweet in the same article as the reply box
   const article = replyBox.closest("article");
   if (article) {
     tweetText = extractTweetTextFromContainer(article);
     if (tweetText) console.log("getTweetTextFromDOM: Found tweet text within article:", tweetText);
   }
-  
+
   // Method 2: If not found in article, try looking in the dialog
   if (!tweetText) {
     const dialog = replyBox.closest('[role="dialog"]');
@@ -451,7 +424,7 @@ function getTweetTextFromDOM(replyBox) {
       if (tweetText) console.log("getTweetTextFromDOM: Found tweet text in dialog:", tweetText);
     }
   }
-  
+
   // Method 3: Try to find the tweet by looking up the DOM tree
   if (!tweetText) {
     let parent = replyBox.parentElement;
@@ -464,7 +437,7 @@ function getTweetTextFromDOM(replyBox) {
       parent = parent.parentElement;
     }
   }
-  
+
   // Method 4: Last resort - try to find any element with substantial text near the reply box
   if (!tweetText) {
     const nearbyElements = document.querySelectorAll('div[data-testid="tweetText"], article[data-testid="tweet"]');
@@ -477,7 +450,7 @@ function getTweetTextFromDOM(replyBox) {
       }
     }
   }
-  
+
   console.log("getTweetTextFromDOM: Final tweet text:", tweetText);
   return tweetText;
 }
